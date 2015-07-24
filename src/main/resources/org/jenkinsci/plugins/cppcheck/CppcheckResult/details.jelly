@@ -23,16 +23,201 @@
         <li><a href="source.all?before=5&amp;after=5&amp;states=unchanged">${%unchanged}</a></li>
     </ul>
 
+    <script>
+        <![CDATA[
+            function arrayContains(array, element) {
+                for (var i = 0; i < array.length; i++) {
+                    if (array[i] === element) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function createMapping() {
+                var table = [];
+                table['state']        = 0;
+                table['file']         = 1;
+                table['line']         = 2;
+                table['severity']     = 3;
+                table['type']         = 4;
+                table['inconclusive'] = 5;
+                table['message']      = 6;
+                return table;
+            }
+
+            var mapping = createMapping();
+
+            function getAll(name) {
+                var types = [];
+                var warnings = document.getElementById('cppcheckDetails').childNodes[1].getElementsByTagName('tr');
+                for (var i = 0; i < warnings.length; i++) {
+                    var warningsElements = warnings[i].getElementsByTagName('td');
+                    var type = warningsElements[mapping[name]].innerHTML;
+                    if (!arrayContains(types, type)) {
+                        types[types.length] = type;
+                    }
+                }
+                types.sort();
+                return types;
+            }
+
+            function getChosenWarnings(name) {
+                states = [];
+                checkboxes = document.getElementsByName(name);
+                for (var i = 0; i < checkboxes.length; i++) {
+                    if (checkboxes[i].checked) {
+                        states[states.length] = checkboxes[i].value;
+                    }
+                }
+                return states;
+            }
+
+            function filter(name) {
+                var states = getChosenWarnings(name);
+
+                var warnings = document.getElementById('cppcheckDetails').childNodes[1].getElementsByTagName('tr');
+                for (var i = 0; i < warnings.length; i++) {
+                    var warningDetails = warnings[i].getElementsByTagName('td');
+                    var isWarningVisible = arrayContains(states, warningDetails[mapping[name]].innerHTML);
+                    for (var j = 0; j < warningDetails.length; j++) {
+                        if (isWarningVisible) {
+                            warningDetails[j].style.display = 'table-cell';
+                        } else {
+                            warningDetails[j].style.display = 'none';
+                        }
+                    }
+                }
+            }
+
+            function checkAll(name, isChecked) {
+                var checkboxes = document.getElementsByName(name);
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = isChecked;
+                }
+            }
+
+            function addAttribute(element, attributeName, attributeValue) {
+                var attribute = document.createAttribute(attributeName);
+                attribute.value = attributeValue;
+                element.setAttributeNode(attribute);
+            }
+
+            function createElement(elementName, innerHTML) {
+                var element = document.createElement(elementName);
+                element.innerHTML = innerHTML;
+                return element;
+            }
+
+            function getCheckboxesValues(name) {
+                var checkboxes = document.getElementsByName(name);
+                var checkboxesValues = [];
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxesValues[checkboxesValues.length] = checkboxes[i].value;
+                }
+                return checkboxesValues;
+            }
+
+            function updateCheckboxList(name) {
+                var checkboxesValues = getCheckboxesValues(name);
+                var typeForm = document.getElementById(name + 'Form');
+                var types = getAll(name);
+                for (var i = 0; i < types.length; i++) {
+                    if (!arrayContains(checkboxesValues, types[i])) {
+                        var checkbox = createElement('input', '');
+                        addAttribute(checkbox, 'type', 'checkbox');
+                        addAttribute(checkbox, 'name', name);
+                        addAttribute(checkbox, 'value', types[i]);
+                        typeForm.appendChild(checkbox);
+
+                        var span = createElement('span', types[i]);
+                        typeForm.appendChild(span);
+                    }
+                }
+            }
+
+            function updateCheckboxLists() {
+                var listsToUpdate = [
+                    'state',
+                    'severity',
+                    'type',
+                    'inconclusive'
+                ];
+                for (var i = 0; i < listsToUpdate.length; i++) {
+                    updateCheckboxList(listsToUpdate[i]);
+                }
+            }
+
+            function createButton(title, command) {
+                var button = createElement('button', title);
+                addAttribute(button, 'type',    'button');
+                addAttribute(button, 'onclick', command);
+                return button;
+            }
+
+            function generateForm(name) {
+                var form = createElement('form', '');
+                form.appendChild(createButton('Check all',         "checkAll('" + name + "', true);"));
+                form.appendChild(createButton('Uncheck all',       "checkAll('" + name + "', false);"));
+                form.appendChild(createButton('Filter by ' + name, "filter('" + name + "');"));
+                addAttribute(form, 'id',     name + 'Form');
+                addAttribute(form, 'action', '#');
+                form.appendChild(createElement('br', ''));
+                return form;
+            }
+
+            /*function changeStyle() {
+                var css = '#cppcheckDetails { table-layout: fixed; } #cppcheckDetails .pane-header { word-wrap: break-word; }';
+                var mainPanel = document.getElementById('main-panel');
+                var style = document.createElement('style');
+
+                style.type = 'text/css';
+                if (style.styleSheet) {
+                    style.styleSheet.cssText = css;
+                } else {
+                    style.appendChild(document.createTextNode(css));
+                }
+
+                mainPanel.appendChild(style);
+            }*/
+
+            function generateForms() {
+                // changeStyle();
+
+                var listsToCreate = [
+                    'state',
+                    'severity',
+                    'type',
+                    'inconclusive'
+                ];
+                var divWithForms = document.getElementById('filters');
+                for (var i = 0; i < listsToCreate.length; i++) {
+                    var form = generateForm(listsToCreate[i]);
+                    divWithForms.appendChild(form);
+                    divWithForms.appendChild(createElement('br', ''));
+                }
+                divWithForms.appendChild(createElement('br', ''));
+
+                var generator = divWithForms.childNodes[0];
+                generator.style.display = 'none';
+            }
+        ]]>
+    </script>
+
+    <div id="filters">
+        <button type="button" onclick="generateForms(); updateCheckboxLists();">Generate filters</button>
+    </div>
+
     <table class="pane sortable" id="cppcheckDetails">
         <thead>
             <tr>
-                <td class="pane-header">${%State}</td>
-                <td class="pane-header">${%File}</td>
-                <td class="pane-header">${%Line}</td>
-                <td class="pane-header">${%Severity}</td>
-                <td class="pane-header">${%Type}</td>
-                <td class="pane-header">${%Inconclusive}</td>
-                <td class="pane-header">${%Message}</td>
+                <td class="pane-header" style="width:  4%;">${%State}</td>
+                <td class="pane-header" style="width: 16%;">${%File}</td>
+                <td class="pane-header" style="width:  2%;">${%Line}</td>
+                <td class="pane-header" style="width:  5%;">${%Severity}</td>
+                <td class="pane-header" style="width:  9%;">${%Type}</td>
+                <td class="pane-header" style="width:  4%;">${%Inconclusive}</td>
+                <td class="pane-header" style="width: 30%;">${%Message}</td>
             </tr>
         </thead>
         <tbody>
@@ -46,7 +231,7 @@
 
                 <tr>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${elt.diffState.text}</td>
-                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}">
+                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}" style="word-break: break-all;">
                         <j:if test="${elt.isSourceIgnored()}">
                             ${cppcheckFile.fileName}
                         </j:if>
@@ -63,7 +248,7 @@
                         </j:if>
                     </td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.severity}</td>
-                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.cppCheckId}</td>
+                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}" style="word-break: break-all;">${cppcheckFile.cppCheckId}</td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.inconclusive}</td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.messageHtml}</td>
                 </tr>
