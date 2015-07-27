@@ -119,20 +119,50 @@
             }
 
             function updateCheckboxList(name) {
+                var isCompleted = false;
+
+                var bigDiv = createElement('div', '');
+                console.log("bigDiv: " + bigDiv);
+
                 var checkboxesValues = getCheckboxesValues(name);
                 var typeForm = document.getElementById(name + 'Form');
+
                 var types = getAll(name);
+                var step = Math.floor(types.length / 4);
+                console.log("step: " + step);
                 for (var i = 0; i < types.length; i++) {
                     if (!arrayContains(checkboxesValues, types[i])) {
+                        var div = createElement('div', '');
+
                         var checkbox = createElement('input', '');
                         addAttribute(checkbox, 'type', 'checkbox');
                         addAttribute(checkbox, 'name', name);
                         addAttribute(checkbox, 'value', types[i]);
-                        typeForm.appendChild(checkbox);
+                        div.appendChild(checkbox);
 
                         var span = createElement('span', types[i]);
-                        typeForm.appendChild(span);
+                        div.appendChild(span);
+
+                        bigDiv.appendChild(div);
+
+                        if(step > 5 && (i % step) == (step - 1)) {
+                            console.log("i: " + i);
+                            if (i + 1 == types.length) {
+                                bigDiv.style.float = 'none';
+                                isCompleted = true;
+                            } else {
+                                bigDiv.style.float = 'left';
+                            }
+                            typeForm.appendChild(bigDiv);
+                            bigDiv = createElement('div', '');
+                        }
+                        console.log("bigDiv: " + bigDiv);
                     }
+                }
+
+                if (!isCompleted) {
+                    bigDiv.style.float = 'none';
+                    typeForm.appendChild(bigDiv);
                 }
             }
 
