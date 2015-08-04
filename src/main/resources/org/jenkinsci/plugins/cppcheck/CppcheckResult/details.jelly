@@ -7,11 +7,12 @@
 
     <style type="text/css">
     #cppcheckDetails { width: auto; }
-    #cppcheckDetails td { white-space: normal; }
+    #cppcheckDetails td { white-space: normal; word-break: break-all; }
     #cppcheckDetails .new { background-color: #FFC8C8; }
     #cppcheckDetails .solved { background-color: #C8FFC8; }
     #cppcheckDetails .unchanged { }
     #cppcheckDetails .inconclusive { color: #555555; }
+    form { /*border: solid;*/ overflow: hidden; }
     </style>
 
     <p>Show issues highlighted on a single page</p>
@@ -48,6 +49,13 @@
 
             var mapping = createMapping();
 
+            var availableFilters = [
+                'state',
+                'severity',
+                'type',
+                'inconclusive'
+            ];
+
             function getAll(name) {
                 var types = [];
                 var warnings = document.getElementById('cppcheckDetails').childNodes[1].getElementsByTagName('tr');
@@ -62,19 +70,51 @@
                 return types;
             }
 
-            function getChosenWarnings(name) {
-                states = [];
-                checkboxes = document.getElementsByName(name);
+            function getChosenWarningTypes(name) {
+                var warningsTypes = [];
+                var checkboxes = document.getElementsByName(name);
                 for (var i = 0; i < checkboxes.length; i++) {
                     if (checkboxes[i].checked) {
-                        states[states.length] = checkboxes[i].value;
+                        warningsTypes[warningsTypes.length] = checkboxes[i].value;
                     }
                 }
-                return states;
+                return warningsTypes;
             }
 
-            function filter(name) {
-                var states = getChosenWarnings(name);
+            function isWarningVisible(states, warningDetails) {
+                for (var i = 0; i < availableFilters.length; i++) {
+                    var name = availableFilters[i];
+                    var text = warningDetails[mapping[name]].innerHTML;
+                    if(!arrayContains(states[i], text)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function filterByAllTypes() {
+                var states = [ [] ];
+                for (var i = 0; i < availableFilters.length; i++) {
+                    var name = availableFilters[i];
+                    states[i] = getChosenWarningTypes(name);
+                }
+
+                var warnings = document.getElementById('cppcheckDetails').childNodes[1].getElementsByTagName('tr');
+                for (var i = 0; i < warnings.length; i++) {
+                    var warningDetails = warnings[i].getElementsByTagName('td');
+                    var isVisible = isWarningVisible(states, warningDetails);
+                    for (var j = 0; j < warningDetails.length; j++) {
+                        if (isVisible) {
+                            warningDetails[j].style.display = 'table-cell';
+                        } else {
+                            warningDetails[j].style.display = 'none';
+                        }
+                    }
+                }
+            }
+
+            function filterByType(name) {
+                var states = getChosenWarningTypes(name);
 
                 var warnings = document.getElementById('cppcheckDetails').childNodes[1].getElementsByTagName('tr');
                 for (var i = 0; i < warnings.length; i++) {
@@ -90,10 +130,29 @@
                 }
             }
 
-            function checkAll(name, isChecked) {
+            function invertAllOfType(name) {
+                var checkboxes = document.getElementsByName(name);
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = !checkboxes[i].checked;
+                }
+            }
+
+            function invertAll(name) {
+                for (var i = 0; i < availableFilters.length; i++) {
+                    invertAllOfType(availableFilters[i]);
+                }
+            }
+
+            function checkAllOfType(name, isChecked) {
                 var checkboxes = document.getElementsByName(name);
                 for (var i = 0; i < checkboxes.length; i++) {
                     checkboxes[i].checked = isChecked;
+                }
+            }
+
+            function checkAll(isChecked) {
+                for (var i = 0; i < availableFilters.length; i++) {
+                    checkAllOfType(availableFilters[i], isChecked);
                 }
             }
 
@@ -122,14 +181,12 @@
                 var isCompleted = false;
 
                 var bigDiv = createElement('div', '');
-                console.log("bigDiv: " + bigDiv);
 
                 var checkboxesValues = getCheckboxesValues(name);
                 var typeForm = document.getElementById(name + 'Form');
 
                 var types = getAll(name);
                 var step = Math.floor(types.length / 4);
-                console.log("step: " + step);
                 for (var i = 0; i < types.length; i++) {
                     if (!arrayContains(checkboxesValues, types[i])) {
                         var div = createElement('div', '');
@@ -146,7 +203,6 @@
                         bigDiv.appendChild(div);
 
                         if(step > 5 && (i % step) == (step - 1)) {
-                            console.log("i: " + i);
                             if (i + 1 == types.length) {
                                 bigDiv.style.float = 'none';
                                 isCompleted = true;
@@ -156,7 +212,6 @@
                             typeForm.appendChild(bigDiv);
                             bigDiv = createElement('div', '');
                         }
-                        console.log("bigDiv: " + bigDiv);
                     }
                 }
 
@@ -167,14 +222,8 @@
             }
 
             function updateCheckboxLists() {
-                var listsToUpdate = [
-                    'state',
-                    'severity',
-                    'type',
-                    'inconclusive'
-                ];
-                for (var i = 0; i < listsToUpdate.length; i++) {
-                    updateCheckboxList(listsToUpdate[i]);
+                for (var i = 0; i < availableFilters.length; i++) {
+                    updateCheckboxList(availableFilters[i]);
                 }
             }
 
@@ -187,17 +236,26 @@
 
             function generateForm(name) {
                 var form = createElement('form', '');
-                form.appendChild(createButton('Check all',         "checkAll('" + name + "', true);"));
-                form.appendChild(createButton('Uncheck all',       "checkAll('" + name + "', false);"));
-                form.appendChild(createButton('Filter by ' + name, "filter('" + name + "');"));
-                addAttribute(form, 'id',     name + 'Form');
                 addAttribute(form, 'action', '#');
+                if(name === undefined) {
+                    addAttribute(form, 'id', 'allForm');
+                    form.appendChild(createButton('Check all',   "checkAll(true);"));
+                    form.appendChild(createButton('Uncheck all', "checkAll(false);"));
+                    form.appendChild(createButton('Invert',      "invertAll();"));
+                    form.appendChild(createButton('Filter',      "filterByAllTypes();"));
+                } else {
+                    addAttribute(form, 'id', name + 'Form');
+                    form.appendChild(createButton('Check all',         "checkAllOfType('" + name + "', true);"));
+                    form.appendChild(createButton('Uncheck all',       "checkAllOfType('" + name + "', false);"));
+                    form.appendChild(createButton('Invert',            "invertAllOfType('" + name + "');"));
+                    form.appendChild(createButton('Filter by ' + name, "filterByType('" + name + "');"));
+                }
                 form.appendChild(createElement('br', ''));
                 return form;
             }
 
-            /*function changeStyle() {
-                var css = '#cppcheckDetails { table-layout: fixed; } #cppcheckDetails .pane-header { word-wrap: break-word; }';
+            function changeStyle() {
+                /*var css = '#cppcheckDetails { table-layout: fixed; } #cppcheckDetails .pane-header { word-wrap: break-word; }';
                 var mainPanel = document.getElementById('main-panel');
                 var style = document.createElement('style');
 
@@ -208,11 +266,11 @@
                     style.appendChild(document.createTextNode(css));
                 }
 
-                mainPanel.appendChild(style);
-            }*/
+                mainPanel.appendChild(style);*/
+            }
 
             function generateForms() {
-                // changeStyle();
+                changeStyle();
 
                 var listsToCreate = [
                     'state',
@@ -226,6 +284,8 @@
                     divWithForms.appendChild(form);
                     divWithForms.appendChild(createElement('br', ''));
                 }
+                divWithForms.appendChild(generateForm());
+                divWithForms.appendChild(createElement('br', ''));
                 divWithForms.appendChild(createElement('br', ''));
 
                 var generator = divWithForms.childNodes[0];
@@ -241,13 +301,13 @@
     <table class="pane sortable" id="cppcheckDetails">
         <thead>
             <tr>
-                <td class="pane-header" style="width:  4%;">${%State}</td>
-                <td class="pane-header" style="width: 16%;">${%File}</td>
-                <td class="pane-header" style="width:  2%;">${%Line}</td>
-                <td class="pane-header" style="width:  5%;">${%Severity}</td>
-                <td class="pane-header" style="width:  9%;">${%Type}</td>
-                <td class="pane-header" style="width:  4%;">${%Inconclusive}</td>
-                <td class="pane-header" style="width: 30%;">${%Message}</td>
+                <td class="pane-header" style="width:  5%;">${%State}</td>
+                <td class="pane-header" style="width: 30%;">${%File}</td>
+                <td class="pane-header" style="width:  5%;">${%Line}</td>
+                <td class="pane-header" style="width:  7%;">${%Severity}</td>
+                <td class="pane-header" style="width: 11%;">${%Type}</td>
+                <td class="pane-header" style="width:  7%;">${%Inconclusive}</td>
+                <td class="pane-header" style="width: 35%;">${%Message}</td>
             </tr>
         </thead>
         <tbody>
@@ -261,7 +321,7 @@
 
                 <tr>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${elt.diffState.text}</td>
-                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}" style="word-break: break-all;">
+                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}">
                         <j:if test="${elt.isSourceIgnored()}">
                             ${cppcheckFile.fileName}
                         </j:if>
@@ -278,7 +338,7 @@
                         </j:if>
                     </td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.severity}</td>
-                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}" style="word-break: break-all;">${cppcheckFile.cppCheckId}</td>
+                    <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.cppCheckId}</td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.inconclusive}</td>
                     <td class="pane ${elt.diffState.css} ${inconclusiveCss}">${cppcheckFile.messageHtml}</td>
                 </tr>
